@@ -1,0 +1,475 @@
+<!DOCTYPE HTML>
+
+    <html>
+
+      <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <title>Anywhere Sample</title>
+		<script type="text/javascript" src="./js/jquery-1.8.2.js"></script>
+		<script type="text/javascript" src="./js/jquery-ui-1.9.0.custom.min.js"></script>
+		<script type="text/javascript" src="./js/webinos.js"></script> -->
+        <script src="http://platform.twitter.com/anywhere.js?id=ZsBOkY7jN02FGaG5AYgtQ&v=1" type="text/javascript"></script>
+		
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		<style type="text/css">
+		  html { height: 100% }
+		  body { height: 100%; margin: 0; padding: 0 }
+		  #map_canvas { height: 100% }
+		</style>
+		<script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?sensor=false">
+    </script>
+      </head>
+      <body>
+	      <div id="auth-status">
+        <div id="auth-loggedout">
+          <a href="#" id="auth-loginlink">Login</a>
+        </div>
+        <div id="auth-loggedin" style="display:none">
+          Hi, <span id="auth-displayname"></span>  
+        (<a href="#" id="auth-logoutlink">logout</a>)
+      </div>
+    </div>
+	<script>
+	
+	var markersArray = [];
+	var twitterUser;
+	
+	function clearOverlays() {
+		if (markersArray) {
+			for (var i = 0; i < markersArray.length; i++ ) {
+			  markersArray[i].setMap(null);
+			}
+			markersArray.clear();
+	  }
+	}
+
+	
+      window.fbAsyncInit = function() {
+        FB.init({
+          appId      : '477714925587076', // App ID
+          channelUrl : 'http://www.cs.ox.ac.uk/people/john.lyle/locationtracer/channel', 
+          status     : true, // check login status
+          cookie     : true, // enable cookies to allow the server to access the session
+          xfbml      : true  // parse XFBML
+        });
+
+        // listen for and handle auth.statusChange events
+        FB.Event.subscribe('auth.statusChange', function(response) {
+          if (response.authResponse) {
+            
+            // user has auth'd your app and is logged into Facebook
+            FB.api('/me', function(me){
+              if (me.name) {
+                document.getElementById('auth-displayname').innerHTML = me.name;
+              }
+            })
+            document.getElementById('auth-loggedout').style.display = 'none';
+            document.getElementById('auth-loggedin').style.display = 'block';
+          } else {
+            // user has not auth'd your app, or is not logged into Facebook
+            document.getElementById('auth-loggedout').style.display = 'block';
+            document.getElementById('auth-loggedin').style.display = 'none';
+          }
+        });
+
+        // respond to clicks on the login and logout links
+        document.getElementById('auth-loginlink').addEventListener('click', function(){
+           FB.login(function(response) {
+               // handle the response
+           }, {scope: 'friends_location,friends_photos,friends_status,user_activities,user_events,user_location,user_notes,user_photos,user_status'});
+        });
+        document.getElementById('auth-logoutlink').addEventListener('click', function(){
+          FB.logout();
+        }); 
+      };
+
+	  // Load the SDK Asynchronously
+	  (function(d){
+		 var js, id = 'facebook-jssdk', ref = d.getElementsByTagName('script')[0];
+		 if (d.getElementById(id)) {return;}
+		 js = d.createElement('script'); js.id = id; js.async = true;
+		 js.src = "//connect.facebook.net/en_US/all.js";
+		 ref.parentNode.insertBefore(js, ref);
+	   }(document));
+	   
+	   // Load the SDK Asynchronously
+	  (function(d){
+		 var js, id = 'webinos-again', ref = d.getElementsByTagName('script')[0];
+		 if (d.getElementById(id)) {return;}
+		 js = d.createElement('script'); js.id = id; js.async = true;
+		 js.src = "webinos-salvo.js";
+		 ref.parentNode.insertBefore(js, ref);
+	   }(document));
+	   
+	   
+	   
+	   var CalculateDistance = function(lat1, lon1, lat2, lon2) {
+		var R = 6371; // Radius of the earth in km
+		var dLat = (lat2-lat1).toRad();  // Javascript functions in radians
+		var dLon = (lon2-lon1).toRad(); 
+		var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+		Math.cos(lat1.toRad()) * Math.cos(lat2.toRad()) * 
+		Math.sin(dLon/2) * Math.sin(dLon/2); 
+		var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+		var d = R * c; // Distance in km
+		return d;
+	   }
+	   
+	   
+	</script>
+		  
+	  	    <span id="twlogin"></span>
+			<span id="twlogout"></span>
+	  
+	  			<table style="background-color: lightgray; border: 3px solid #0879a9">
+		<tr>
+			<td>
+				<div>
+					Select from the list Available PZP & PZH to find Service <select size="5"
+						id="ContexServices">
+						
+					</select>
+
+					<button id="findService" class="button">Find Service</button>
+
+				</div>
+
+			</td>
+		</tr>
+		<tr>
+			<td><p>
+					<i> Find Service will determine where your code will be
+						executed</i>
+				</p></td>
+			<td></td>
+		<tr>
+			<td>
+				<button id="bindContext" class="button">Bind</button>
+			</td>
+			<td>
+		</tr>
+		<tr>
+			<td>
+				<div id="contextDataTblContainer"></div>
+			</td>
+		</tr>
+	</table>
+	  
+	  		
+		<form id="query">
+			Until: <input type="text" name="Until" /><br />
+			Latitude: <input type="text" name="Latitude" /><br />
+			Longitude: <input type="text" name="Longitude" /><br />
+			Radius: <input type="text" name="Radius" /><br />
+		</form>
+		<form id="radiounit">
+			<input type="radio" name="unit" value="km" /> km<br />
+			<input type="radio" name="unit" value="mile" /> mi	
+		</form>				
+		<form>	
+			<button id="twitterQuery" class="button">Query Twitter</button>		
+			<button id="apiQuery" class="button">Query API</button>
+			<button id="fbQuery" class="button">Query Facebook</button>
+			<button id="locationupdate" class="button">Get Location from Map</button>
+			<button id="clear" class="button">Clear</button>
+			
+			
+			
+		</form>
+   
+
+	
+	<div id="map_canvas" style="width:50%; height:50%"></div>
+	
+	<div id="results">
+	Search for tweets by location and time
+	</div>
+	
+
+	<script type="text/javascript">  
+	$('#radiounit input[name=unit]:nth(0)').attr('checked',true)
+	
+        var myOptions = {
+          center: new google.maps.LatLng(51.5171,0.1062),
+          zoom: 8,
+          mapTypeId: google.maps.MapTypeId.ROADMAP
+        };
+        var map = new google.maps.Map(document.getElementById("map_canvas"),
+            myOptions);	
+	
+jQuery(function () {
+    twttr.anywhere(function (T) {
+		T("#twlogin").connectButton({
+			authComplete: function(user) { 
+				$("#twlogout").append('<button id="signout" type="button">Sign out of Twitter</button>');
+				$("#signout").bind("click", function () {
+					twttr.anywhere.signOut();
+				});
+				currentUser = user.data('screen_name');
+			},
+			signOut: function() {
+				currentUser='';
+				$("#twlogout").empty();
+			}
+		});
+	
+      if (T.isConnected()) {
+		currentUser = T.currentUser.data('screen_name');
+        $("#twlogout").append('<button id="signout" type="button">Sign out of Twitter</button>');
+        $("#signout").bind("click", function () {
+          twttr.anywhere.signOut();
+        });
+      }
+    });
+  });
+	  
+	$('#twitterQuery').bind('click', function() {
+	
+		// Create a Script Tag
+		var url = "https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&include_rts=true&screen_name="+currentUser+"&callback=processTheseTweets"
+	
+		console.log(url);
+		var script=document.createElement('script');
+		script.type='text/javascript';
+		script.src= url;	
+		// Add the Script to the Body element, which will in turn load the script and run it.
+		$("body").append(script);
+		return false;
+	});
+
+	function processTheseTweets(jsonData){
+		var shtml = '';
+		var results = jsonData;
+		var pinColor = "00FFFF";
+		var pinImage = new google.maps.MarkerImage("http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|" + pinColor);
+		var geocoder = new google.maps.Geocoder();
+		if(results){				
+			for (var i = 0; i < results.length; i++) {
+				if(results[i].geo != null) {
+					var marker = new google.maps.Marker({
+					position: new google.maps.LatLng(results[i].geo.latitude, results[i].geo.longitude),
+					map: map,
+					icon: pinImage
+				  });
+				  markersArray.push(marker);
+				  var infowindow = new google.maps.InfoWindow();
+				  infowindow.setContent("Time: "+results[i].created_at+"<br>From: "+results[i].user.screen_name+"<br>Tweet: "+results[i].text);
+				  
+				  google.maps.event.addListener(marker, 'click', (function(marker, infowindow) {
+						return function() {
+						  infowindow.open(map, marker);
+						}
+					  })(marker, infowindow));	
+				}
+				else if(results[i].place!=null){			
+					var infowindow = new google.maps.InfoWindow();
+					infowindow.setContent("Time: "+results[i].created_at+"<br>From: "+results[i].user.screen_name+"<br>Tweet: "+results[i].text);			
+					geocoder.geocode({
+						address: results[i].place.name,
+						region: results[i].place.country_code
+					}, 
+					(function(infowindow){
+					   return function(geocoderesults, status) {
+						  if(status == google.maps.GeocoderStatus.OK) {
+							 var marker = new google.maps.Marker({
+								position: geocoderesults[0].geometry.location,
+								map: map,
+								icon: pinImage
+							 });
+							markersArray.push(marker);
+							google.maps.event.addListener(marker, 'click', (function(marker, infowindow) {
+								return function() {
+									infowindow.open(map, marker);
+								}
+							})(marker, infowindow));	
+						  }
+						}
+					})(infowindow));
+				}
+			}
+		}
+	
+
+	return false;
+	}
+
+	$('#locationupdate').bind('click', function() {
+		var position = map.getCenter();
+		var lat = position.lat().toString();
+		var longit = position.lng().toString();
+		$("#query input[name=Latitude]").val(lat);
+		$("#query input[name=Longitude]").val(longit);
+		return false;
+	});	
+	
+	$('#clear').bind('click', function() {
+		$("#results").html('');
+		clearOverlays();
+		return false;
+	});
+	
+	
+      </script>
+	  
+	 <script type="text/javascript">
+	var contextService = [];
+	var recentContextService;
+	$('#findService').bind('click', function() {
+	  recentContextService = null;
+	  $('#ContexServices').empty();
+    webinos.discovery.findServices( 
+        new ServiceType('http://webinos.org/api/context'),                         
+        {onFound: function (service) {
+          console.log("Service found");
+          console.log(service);
+          contextService[service.serviceAddress] = service;
+            $('#ContexServices').append($('<option>' + service.serviceAddress + '</option>'));
+    }});
+  	});
+  $("#ContexServices option").live('click', function(event) {
+  	$(this).parent().attr("recent", $(this).val());
+  });
+  $('#bindContext').bind('click', function() {
+    recentContextService = contextService[$('#ContexServices').attr('recent')];
+    recentContextService.bindService({onBind:function(service) {
+  	  	$('#message', window.parent.document).append('<li> Context API ' + service.api + ' bound.</li>');
+      }});
+  });
+    	$('#apiQuery').bind('click', function() {
+		var query = {};
+		query.type = "query";
+		query.data = {
+			select: '*',
+			where:[{
+				type:'and',
+				field:'MyPositions.altitude@GeolocationAPI',
+				op: 'le',
+				value:'1',
+			},{
+				type:'and',
+				field:'MyPositions.altitude',
+				op: 'le',
+				value:'1',
+			},{
+				type:'and',
+				field:'fldContextObject',
+				op: 'eq',
+				value:'MyPositions',
+				sub:[{
+					type:'and',
+					field:'fldValueName',
+					op: 'eq',
+					value:'altitude',
+					sub:[{
+						type:'and',
+						field:'fldValue',
+						op: 'le',
+						value:'1'
+					}]
+				}]
+			}]
+		};
+		recentContextService.executeQuery(query, function(result) {
+			var outputs = {data:[]};
+			for (var i=0; i<result.data.length; i++) {
+				if(result.data[i].fldValueName =='latitude' || result.data[i].fldValueName =='longitude') {
+					var newentry = true;
+					for(var j=0; j<outputs.data.length; j++) {
+						console.log("output rawID= "+outputs.data[j].fldcontextrawID);
+						console.log("result rawID= "+result.data[i].fldcontextrawID);
+						if(outputs.data[j].fldcontextrawID == result.data[i].fldcontextrawID) {
+							newentry = false;
+							if(result.data[i].fldValueName == 'latitude') {
+								outputs.data[j].fldlatitude = result.data[i].fldValue;
+							}
+							else {
+								outputs.data[j].fldlongitude = result.data[i].fldValue;
+							}
+							break;
+						}
+					}
+					if(newentry) {
+						outputs.data[outputs.data.length] = 
+						{'fldcontextrawID' : result.data[i].fldcontextrawID,
+						'fldTimestamp' : result.data[i].fldTimestamp,
+						'fldcontextrawID' : result.data[i].fldcontextrawID,
+						'fldDevice' : result.data[i].fldDevice,
+						'fldApplication' : result.data[i].fldApplication,
+						'fldSession' : result.data[i].fldSession,
+						'fldlatitude' : 'null',
+						'fldlongitude' : 'null'};
+						
+						if(result.data[i].fldValueName == 'latitude') {
+							console.log("lat= "+result.data[i].fldValue);
+							outputs.data[outputs.data.length-1].fldlatitude = result.data[i].fldValue;
+						}
+						else {
+							console.log("long= "+result.data[i].fldValue);
+							outputs.data[outputs.data.length-1].fldlongitude = result.data[i].fldValue;
+						}
+						console.log(outputs.data[outputs.data.length]);
+					}
+				}
+			}
+					if (outputs.msg != null) {
+						$("#results").html('<b>An error occurred retriving data from the database.</b><br/><br/>Please check your console for debug info.');
+						console.group("Context Service Debug: result=>");
+						console.error(outputs);
+						console.groupEnd();
+						return;
+					}		
+					if (!outputs.data.length) {
+						$("#results").html('No Data found on your database.');
+						return;
+					}
+					for (var rowIndex = 0; rowIndex < outputs.data.length; rowIndex++) {
+						var row = outputs.data[rowIndex];
+						var pinColor = "FF0000";
+						var pinImage = new google.maps.MarkerImage("http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|" + pinColor);
+						markersArray.push(marker);
+						var marker = new google.maps.Marker({
+							position: new google.maps.LatLng(row.fldlatitude, row.fldlongitude),
+							map: map,
+							icon: pinImage
+						});					
+						var infowindow = new google.maps.InfoWindow();
+						infowindow.setContent("Timestamp: "+row.fldTimestamp+"<br>Device: "+row.fldDevice+"<br>Application: "+row.fldApplication+"<br>Session: "+row.fldSession);
+						google.maps.event.addListener(marker, 'click', (function(marker, infowindow){
+							return function() {infowindow.open(map, marker);}
+							})(marker, infowindow));					
+						
+					}
+			});
+			return false;
+	});
+	
+	$('#fbQuery').bind('click', function() {	  
+		FB.api('/me/locations/', { limit:1000 }, function(results) {
+			console.log(results);
+			for(var i=0; i<results.data.length; i++) {
+				var row=results.data[i];
+				var pinColor = "0000FF";
+				var pinImage = new google.maps.MarkerImage("http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|" + pinColor);
+				var marker = new google.maps.Marker({
+					position: new google.maps.LatLng(row.place.location.latitude, row.place.location.longitude),
+					map: map,
+					icon: pinImage
+				});
+				markersArray.push(marker);
+				var infowindow = new google.maps.InfoWindow();
+				infowindow.setContent("<a href=https://www.facebook.com/"+row.id+" target='_blank'>Facebook "+row.type+ "</a>");
+				google.maps.event.addListener(marker, 'click', (function(marker, infowindow) {
+						return function() {
+						  infowindow.open(map, marker);
+						}
+					  })(marker, infowindow));				
+			}
+		});
+		return false;
+	  });
+	  
+	  </script>
+	  
+
+	</body>        
+    </html>

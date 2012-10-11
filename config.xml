@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<widget xmlns="http://www.w3.org/ns/widgets" id="http://www.johnlyle.co.uk/geowebinos" version="0.1.0">
+  <!-- Name of the widget -->
+  <name>Geolocation example</name>
+  <!-- Description is shown when installing widget -->
+  <description>A simple widget which will access the first Geolocation API it finds</description>
+  <!-- Start page for widget -->
+  <content src="index.html" />
+  <!-- Default icon for widget -->
+  <icon src="icon.png" />
+  <!-- Widget author -->
+  <author>John Lyle</author>
+</widget>
+
